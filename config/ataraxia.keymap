@@ -1,33 +1,13 @@
 /*
- * Copyright (c) 2025 miketronic
+ * Ataraxia v2 (42 keys + PMW3610 trackball)
+ *
+ * Adapted from the author's Lily58 keymap. The Lily58's bottom three rows map
+ * 1:1 onto the Ataraxia's three rows of twelve, so the alphas are untouched.
+ * What did not fit -- the number row, the two inner bottom keys and two of the
+ * eight thumb keys -- is rehomed on LOWER and RAISE, see the notes below.
+ *
  * SPDX-License-Identifier: MIT
- * ataraxia v1 QWERTY 
  */
-
-/*
- *
- * List of behaviors here > https://github.com/zmkfirmware/zmk/tree/main/app/dts/behaviors
- *
- *
- * #undef ZMK_BEHAVIORS_KEEP_ALL
- * #define ZMK_BEHAVIORS_KEEP_BT
- * #define ZMK_BEHAVIORS_KEEP_KP
- * #define ZMK_BEHAVIORS_KEEP_LT
- * #define ZMK_BEHAVIORS_KEEP_MKP
- * #define ZMK_BEHAVIORS_KEEP_MMV
- * #define ZMK_BEHAVIORS_KEEP_MSC
- * #define ZMK_BEHAVIORS_KEEP_MT
- * #define ZMK_BEHAVIORS_KEEP_NONE
- * #define ZMK_BEHAVIORS_KEEP_SK
- *
- *
- */
-
-
-
-
-#define ZMK_POINTING_DEFAULT_MOVE_VAL 500
-#define ZMK_POINTING_DEFAULT_SCRL_VAL 20
 
 #include <behaviors.dtsi>
 #include <input/processors.dtsi>
@@ -36,489 +16,182 @@
 #include <dt-bindings/zmk/outputs.h>
 #include <dt-bindings/zmk/pointing.h>
 
+/*
+ * ---------------------------------------------------------------------------
+ * LAYER INDICES ARE NOT FREE.
+ * ---------------------------------------------------------------------------
+ * The PMW3610 driver -- not the input listener -- implements scroll, sniping
+ * and ball-as-arrows, and the shield hard-codes which layer index triggers
+ * each one. From zmk-keyboards-ataraxia@ataraxia_v2,
+ * boards/shields/ataraxia/boards/nice_nano_v2.overlay:
+ *
+ *     // automouse-layer = <5>;   <- commented out upstream, so unavailable
+ *     snipe-layers  = <7>;
+ *     scroll-layers = <4 5>;
+ *     arrows { layers = <2>; bindings = <&kp RIGHT>, <&kp LEFT>, ... };
+ *
+ * So SCROLL must be 4 and SNIPE must be 7 to get those behaviours for free.
+ * Layer 2 would turn the ball into arrow keys, which is not wanted on a layer
+ * held as often as RAISE -- it is left reserved instead. Renumbering these
+ * silently changes what the trackball does.
+ * ---------------------------------------------------------------------------
+ */
+#define BASE    0
+#define LOWER   1
+/*      (2)     reserved -- driver maps ball to arrow keys here */
+#define RAISE   3
+#define SCROLL  4
+/*      (5)     reserved -- driver treats this as a scroll layer too */
+#define MOUSE   6
+#define SNIPE   7
 
-#define ALPHA       0
-#define WFG         1
-#define SYMBOL      2
-#define NUMBER      3
-#define FUNCTION    4
-#define MOUSE       5
-#define TBALL       6
-#define SNIPING     7
+/* The two hyper keys carried over from the Lily58 layout. */
+#define HYP_L   LS(LC(LG(LALT)))
+#define HYP_R   RS(RA(RC(RGUI)))
 
-
-#define CPST   &cccv LC(C) LC(V)
-#define ESCFN  &lt FUNCTION ESC
-#define NTAB   &lt NUMBER TAB
-#define SYMZ   &lt SYMBOL Z
-#define MMSE   &lt MOUSE M
-#define VBL    &lt TBALL V
-#define SNPC   &lt SNIPING C
-#define TOGQ   &tog 1
-
-#define TTB    &lt TBALL T
-#define NUMG   &lt NUMBER G
-#define SYMS   &lt SYMBOL S
-#define FUNC   &lt FUNCTION C
-#define SNPD   &lt SNIPING D
-#define MSEH   &lt MOUSE H
-
-#define LSPC   &mt LSHIFT SPC
-#define RENT   &mt RSHIFT RET
-#define PRN    &mt RPAR LPAR
-#define OCOM   &mt COMMA O
-#define YDOT   &mt DOT Y  
-#define ATH    &mt HASH AT
-#define PIP    &mt AMPS PIPE
-#define PRC    &mt PRCNT DLLR
-#define QOT    &mt DQT SQT
-#define SLS    &mt BSLH FSLH
-#define CLN    &mt SEMI COLON
-#define EQP    &mt PLUS EQUAL
-#define GRTL   &mt GRAVE TILDE
-#define STCT   &mt CARET STAR
-
-#define LSHF    &kp LSHFT
-#define RSHF    &kp RSHFT
-#define RTCL    &kp RCTRL
-#define COMM    &kp COMMA
-#define GRV     &kp GRAVE
-#define UND     &kp UNDER
-#define MINS    &kp MINUS
-#define UNDS    &kp UNDER
-#define KUP     &kp PG_UP
-#define KDN     &kp PG_DN
-#define bl      &bootloader
-
-#define MM_U &mmv MOVE_UP
-#define MM_D &mmv MOVE_DOWN
-#define MM_R &mmv MOVE_RIGHT
-#define MM_L &mmv MOVE_LEFT
-
-#define MS_U &msc SCRL_UP
-#define MS_D &msc SCRL_DOWN
-#define MS_R &msc SCRL_RIGHT
-#define MS_L &msc SCRL_LEFT
-
-#define MCK  &mkp MCLK  
-#define RCK  &mkp RCLK  
-#define LCK  &mkp LCLK 
-
-&mmv_input_listener {
-        standard {
-            layers = <MOUSE>;
-            input-processors = <&zip_xy_scaler 3 1>;
-        };
-};
-
-&mmv {
-    x-input-code = <INPUT_REL_X>;
-    y-input-code = <INPUT_REL_Y>;
-    time-to-max-speed-ms = <200>;
-    acceleration-exponent = <1>;
-};
 
 &mt {
-    tapping-term-ms = <160>;
+    tapping-term-ms = <180>;
 };
 
 &lt {
-    tapping-term-ms = <150>;
+    tapping-term-ms = <180>;
+};
+
+/*
+ * Moving the ball temporarily activates MOUSE so the right home row becomes
+ * mouse buttons. require-prior-idle-ms keeps it from firing mid-word: the ball
+ * has to be still for 150ms after the last keystroke before it can take over.
+ */
+&zip_temp_layer {
+    require-prior-idle-ms = <150>;
+};
+
+/*
+ * The shield declares this listener without a node label, so it can only be
+ * reached by path. It sets `input-processors = <&pointer_accel>` -- keep that
+ * first so the acceleration curve tuned in the shield still applies.
+ */
+&{/trackball_listener} {
+    input-processors = <&pointer_accel>, <&zip_temp_layer MOUSE 350>;
 };
 
 
 / {
-
     combos {
-
         compatible = "zmk,combos";
+
+        /* Kept from the stock keymap: flash without the reset button. */
         combo_bootloader {
             timeout-ms = <100>;
             key-positions = <2 3 8 9>;
             bindings = <&bootloader>;
         };
-      
-        compatible = "zmk,combos";
-        combo_q {
-            timeout-ms = <50>;
-            layers = <WFG>;
-            key-positions = <2 3>;
-            bindings = <&kp Q>;
-        };
-
-        compatible = "zmk,combos";
-        combo_b {
-            timeout-ms = <50>;
-            layers = <WFG>;
-            key-positions = <3 4>;
-            bindings = <&kp B>;
-        };
-
-        compatible = "zmk,combos";
-        combo_j {
-            timeout-ms = <50>;
-            layers = <WFG>;
-            key-positions = <7 8>;
-            bindings = <&kp J>;
-        };
-
-        compatible = "zmk,combos";
-        combo_bspc {
-            timeout-ms = <50>;
-            layers = <WFG>;
-            key-positions = <8 9>;
-            bindings = <&kp BSPC>;
-        };
-
-        compatible = "zmk,combos";
-        combo_v {
-            timeout-ms = <50>;
-            layers = <WFG>;
-            key-positions = <14 15>;
-            bindings = <&kp V>;
-        };
-
-        compatible = "zmk,combos";
-        combo_p {
-            timeout-ms = <50>;
-            layers = <WFG>;
-            key-positions = <15 16>;
-            bindings = <&kp P>;
-        };
-
-        compatible = "zmk,combos";
-        combo_k {
-            timeout-ms = <50>;
-            layers = <WFG>;
-            key-positions = <19 20>;
-            bindings = <&kp K>;
-        };
-
-        compatible = "zmk,combos";
-        combo_z {
-            timeout-ms = <50>;
-            layers = <WFG>;
-            key-positions = <26 27>;
-            bindings = <&kp Z>;
-        };
-
-        compatible = "zmk,combos";
-        combo_x {
-            timeout-ms = <50>;
-            layers = <WFG>;
-            key-positions = <27 28>;
-            bindings = <&kp X>;
-        };
-
-        compatible = "zmk,combos";
-        combo_lctl {
-            timeout-ms = <100>;
-            key-positions = <2 3 4>;
-            bindings = <&kp LCTRL>;
-        };
-
-        compatible = "zmk,combos";
-        combo_lalt {
-            timeout-ms = <100>;
-            key-positions = <14 15 16>;
-            bindings = <&kp LALT>;
-        };
-
-        compatible = "zmk,combos";
-        combo_rctl {
-            timeout-ms = <100>;
-            key-positions = <7 8 9>;
-            bindings = <&kp RCTRL>;
-        };
-
-        compatible = "zmk,combos";
-        combo_ralt {
-            timeout-ms = <100>;
-            key-positions = <19 20 21>;
-            bindings = <&kp RALT>;
-        };
-
-        compatible = "zmk,combos";
-        combo_dot {
-            timeout-ms = <100>;
-            layers = <WFG>;
-            key-positions = <32 33>;
-            bindings = <&kp DOT>;
-        };
-
-        compatible = "zmk,combos";
-        combo_comma {
-            timeout-ms = <100>;
-            layers = <WFG>;
-            key-positions = <20 21>;
-            bindings = <&kp COMMA>;
-        };
-
-        compatible = "zmk,combos";
-        combo_qmark {
-            timeout-ms = <100>;
-            layers = <SYMBOL>;
-            key-positions = <32 33>;
-            bindings = <&kp QMARK>;
-        };
-
-        compatible = "zmk,combos";
-        combo_excl {
-            timeout-ms = <100>;
-            layers = <SYMBOL>;
-            key-positions = <20 21>;
-            bindings = <&kp EXCL>;
-        };
-
     };
-
-    behaviors {
-
-        bkt: tap_dance_bracket {
-            compatible = "zmk,behavior-tap-dance";
-            #binding-cells = <0>;
-            tapping-term-ms = <200>;
-            bindings = <&kp LBKT>, <&kp RBKT>;
-        };
-
-        cln: tap_dance_colon {
-            compatible = "zmk,behavior-tap-dance";
-            #binding-cells = <0>;
-            tapping-term-ms = <250>;
-            bindings = <&kp COLON>, <&kp SEMI>;
-        };
-
-        brc: tap_dance_brace {
-            compatible = "zmk,behavior-tap-dance";
-            #binding-cells = <0>;
-            tapping-term-ms = <200>;
-            bindings = <&kp LBRC>, <&kp RBRC>;
-        };
-
-        par: tap_dance_paren {
-            compatible = "zmk,behavior-tap-dance";
-            #binding-cells = <0>;
-            tapping-term-ms = <200>;
-            bindings = <&kp LPAR>, <&kp RPAR>;
-        };
-
-        thn: tap_dance_then {
-            compatible = "zmk,behavior-tap-dance";
-            #binding-cells = <0>;
-            tapping-term-ms = <200>;
-            bindings = <&kp LT>, <&kp GT>;
-        };
-
-        qot: tap_dance_quote {
-            compatible = "zmk,behavior-tap-dance";
-            #binding-cells = <0>;
-            tapping-term-ms = <250>;
-            bindings = <&kp SQT>, <&kp DQT>;
-        };
-
-        sls: tap_dance_slash {
-            compatible = "zmk,behavior-tap-dance";
-            #binding-cells = <0>;
-            tapping-term-ms = <250>;
-            bindings = <&kp FSLH>, <&kp BSLH>;
-        };
-
-        pipe: tap_dance_pipe {
-            compatible = "zmk,behavior-tap-dance";
-            #binding-cells = <0>;
-            tapping-term-ms = <250>;
-            bindings = <&kp PIPE>, <&kp AMPS>;
-        };
-
-        at: tap_dance_at {
-            compatible = "zmk,behavior-tap-dance";
-            #binding-cells = <0>;
-            tapping-term-ms = <250>;
-            bindings = <&kp AT>, <&kp HASH>;
-        };
-
-        perc: tap_dance_perc {
-            compatible = "zmk,behavior-tap-dance";
-            #binding-cells = <0>;
-            tapping-term-ms = <250>;
-            bindings = <&kp PRCNT>, <&kp DLLR>;
-        };
-
-        escw: tap_dance_escw {
-            compatible = "zmk,behavior-tap-dance";
-            #binding-cells = <0>;
-            tapping-term-ms = <200>;
-            bindings = <&kp W>, <&kp ESC>;
-        };
-
-        hmend: tap_dance_hmend {
-            compatible = "zmk,behavior-tap-dance";
-            #binding-cells = <0>;
-            tapping-term-ms = <200>;
-            bindings = <&kp END>, <&kp HOME>;
-        };
-
-        tdW: tap_dance_W {
-            compatible = "zmk,behavior-tap-dance";
-            #binding-cells = <0>;
-            tapping-term-ms = <240>;
-            bindings = <&kp W>, <&kp ESC>;
-        };
-
-        td20: tap_dance_20 {
-            compatible = "zmk,behavior-tap-dance";
-            #binding-cells = <0>;
-            tapping-term-ms = <240>;
-            bindings = <&kp N2>, <&kp N0>;
-        };
-
-        cccv: copy_paste {
-           compatible = "zmk,behavior-hold-tap";
-           #binding-cells = <2>;
-           flavor = "hold-preferred";
-           tapping-term-ms = <200>;
-            bindings = <&kp>, <&kp>;
-        };
-
-        hrm: homerow_mods {
-           compatible = "zmk,behavior-hold-tap";
-           #binding-cells = <2>;
-           tapping-term-ms = <250>;
-           quick-tap-ms = <0>;
-           flavor = "tap-preferred";
-           bindings = <&kp>, <&kp>;
-
-        };
-
-    };
-
-
-    macros {
-
-        code: _code {
-            compatible = "zmk,behavior-macro";
-            #binding-cells = <0>;
-            bindings
-                = <&macro_tap &kp GRAVE &kp GRAVE>
-                , <&macro_tap &kp LEFT>
-                ;
-        };
-    };
-
-
 
     keymap {
         compatible = "zmk,keymap";
 
-
-        ALPHA_layer {
-            display-name = "[ATAR]";  
+        /* ----------------------------------------------------------------
+         * 0 BASE -- the Lily58 alpha block, unchanged.
+         *
+         * Thumbs condense the Lily58's eight into six: the duplicate raise
+         * key (&mo 2) is gone, and RET became a layer-tap so LOWER has a
+         * home -- on the Lily58 nothing bound &mo 1 and Lower was dead.
+         * ---------------------------------------------------------------- */
+        base_layer {
+            display-name = "Base";
             bindings = <
-                ESCFN   &kp Q   &kp W   &kp E   &kp R   &kp T   &kp Y   &kp U   &kp I   &kp O   &kp P    &kp BSPC
-                NTAB    &kp A   &kp S   &kp D   &kp F   &kp G   &kp H   &kp J   &kp K   &kp L   &kp SEMI &kp QUOT
-                LSHF    SYMZ    &kp X   SNPC    VBL     &kp B   &kp N   MMSE    COMM    &kp DOT &kp FSLH &kp CAPS
-                                &kp LCTRL &kp LALT LSPC  RENT   &kp RGUI &kp DEL
+&kp TAB     &kp Q   &kp W   &kp E   &kp R   &kp T       &kp Y   &kp U   &kp I      &kp O    &kp P     &kp MINUS
+&kp ESC     &kp A   &kp S   &kp D   &kp F   &kp G       &kp H   &kp J   &kp K      &kp L    &kp SEMI  &kp SQT
+&kp LSHFT   &kp Z   &kp X   &kp C   &kp V   &kp B       &kp N   &kp M   &kp COMMA  &kp DOT  &kp FSLH  &kp RSHFT
+                    &kp RALT  &kp RCTRL  &mt LGUI BSPC      &lt RAISE SPACE  &lt LOWER RET  &kp RGUI
             >;
         };
 
-        WFG_layer {
-            display-name = "[WFG]";  
+        /* ----------------------------------------------------------------
+         * 1 LOWER -- the Lily58 Lower layer folded from four rows into three.
+         *
+         * Rehomed here: both hyper keys on the outer bottom corners, and
+         * LC(SPACE) on Lower + the Space thumb.
+         * Left thumbs reach the two trackball modes.
+         * ---------------------------------------------------------------- */
+        lower_layer {
+            display-name = "Lower";
             bindings = <
-                &none &none  &escw &kp F NUMG &code &none  &kp M &kp L &kp U  &none TOGQ
-                &none &none  &kp A &kp R SYMS &none &none  &kp N &kp E &kp I  &none &to 0
-                &none &none  FUNC  SNPD  TTB  &none &none  MSEH  &kp O &kp Y   &none &none
-                                &kp TAB LSPC LSPC  RENT   RENT  &kp BSPC
+&kp GRAVE   &kp EXCL      &kp AT        &kp HASH      &kp DLLR      &kp PRCNT       &kp CARET  &kp AMPS  &kp STAR  &kp LPAR  &kp RPAR  &kp TILDE
+&kp F1      &kp F2        &kp F3        &kp F4        &kp F5        &kp F6          &kp F7     &kp F8    &kp F9    &kp F10   &kp F11   &kp F12
+&kp HYP_L   &bt BT_SEL 0  &bt BT_SEL 1  &bt BT_SEL 2  &bt BT_SEL 3  &bt BT_SEL 4    &kp UNDER  &kp PLUS  &kp LBRC  &kp RBRC  &kp PIPE  &kp HYP_R
+                          &mo SCROLL    &mo SNIPE     &bt BT_CLR         &kp LC(SPACE)  &trans  &trans
             >;
         };
 
-/*
-        ALPHA_layer {
-            display-name = "ATARAXIA";  
-            bindings = <
-                &kp A  &kp Q  &kp W  &kp E  &kp R  &kp T  &kp Y  &kp U  &kp I   &kp O   &kp P    &sys_reset
-                &kp B  &kp A  &kp S  &kp D  &kp F  &kp G  &kp H  &kp J  &kp K   &kp L   &kp SEMI &kp Y
-                &kp C  &kp Z  &kp X  &kp C  &kp V  &kp B  &kp N  &kp M  &kp COMMA  &kp DOT &kp FSLH &kp Z
-                                &kp A &kp B &kp C  &kp D   &kp E &kp F
-            >;
-        };
-*/
-        SYMBOL_layer {
-            display-name = "SYMBOL";  
-            bindings = <
-                GRV   &kp EXCL  &kp AT    &kp HASH  &kp DLLR &kp PRCNT &kp CARET &kp AMPS  &kp STAR &par &kp MINUS &kp PLUS
-                GRV   &kp TILDE KUP       EQP       &none    &bkt      &brc      CLN       SLS      PIP  &none     &none
-                LSHF  &none     KDN       &none     &none    &none     &none     QOT       ATH      PRC  RSHF      &none
-                                 &kp LCTRL &kp LALT LSPC            RENT   &kp RGUI &kp DEL
-            >;
-        };
-
-        NUMBER_layer {
-            display-name = "NUMBER";  
-            bindings = <
-                &none &kp N1 &kp N2 &kp N3 &kp N4 &kp N5 &kp N6 &kp N7 &kp N8 &kp N9 &kp N0 &none
-                &none &none  &none &none  &none  &none  &none  &kp N4 &kp N5 &kp N6 &none  &sys_reset
-                LSHF  &none  bl  &sys_reset  &none  &none  &none  &kp N1 &td20  &kp N3 &none  RSHF 
-                                 &kp LCTRL &kp LALT LSPC            RENT   &kp RGUI &kp DEL
-            >;
-        };
-
-        FUNCTION_layer {
-            display-name = "FUNCTION";  
-            bindings = <
-                &none  &none  CPST     &kp LC(LA(Q)) &kp LC(LA(G))   &none    &none  &kp F2   &kp UP   &kp DEL   &none &none
-                &none  &none  &kp TAB  &none  &none  &none                    &none  &kp LEFT &kp DOWN &kp RIGHT &none &none
-                &none  &none  &none    &none  &none  &none                    &none  &kp LC(Z) &kp DEL  &kp LC(Y) &none &none
-                                 &kp LCTRL &kp LALT LSPC            RENT   &kp RGUI &kp DEL
-            >;
-        };
-
-        MOUSE_layer {
-            display-name = "MOUSE";  
-            bindings = <
-                &none &none MS_U  MM_U  MS_D  &none   &none MINS  UNDS  &none &none &none
-                &none &none MM_L  MM_D  MM_R  &none   &none &none &none &none &none &none
-                &none &none MCK   LCK   RCK   &none   &none &none &none &bt BT_NXT &bt BT_PRV &bt BT_CLR_ALL  
-                                     MCK  RCK  LCK     MCK  RCK  LCK
-            >;
-        };
-
-        TBALL_layer {
-            display-name = "TBALL";  
-            bindings = <
-                &none  &none  MCK    RCK    LCK   &none  &none  RSHF   RTCL   KUP   &none TOGQ
-                &none  &none  LSHF   MS_U   MS_D  &none  &none  CPST   &none  KDN   &none &to 1
-                &none  &none  &none  &none  &none &none  &none  &none  &none  &none &none &none  
-                              RCK    MCK    LCK                 LCK  MCK  RCK
-            >;
-        };
-
-        SNIPING_layer {
-            display-name = "SNIPE";  
-            bindings = <
-                &none &none MCK   RCK   LCK   &none   &none RSHF  RTCL  KUP    &none &none
-                &none &none LSHF  MS_U  MS_D  &none   &none CPST  &none KDN    &none &none
-                &none &none &none &none &none &none   &none &none &none &none  &none &none  
-                                     RCK  MCK  LCK     LCK  MCK  RCK
-            >;
-        };
-
-
-
-        extra1 {
+        /* Reserved: the driver turns the ball into arrow keys on layer 2. */
+        reserved_ball_arrows {
             status = "reserved";
         };
 
-        extra2 {
+        /* ----------------------------------------------------------------
+         * 3 RAISE -- the number row back in its original columns, so the
+         * digits sit exactly where they did on the Lily58, one thumb hold
+         * away. Vim arrows on HJKL.
+         * ---------------------------------------------------------------- */
+        raise_layer {
+            display-name = "Raise";
+            bindings = <
+&kp GRAVE   &kp N1  &kp N2  &kp N3  &kp N4  &kp N5      &kp N6    &kp N7    &kp N8    &kp N9     &kp N0    &kp EQUAL
+&trans      &trans  &trans  &trans  &trans  &trans      &kp LEFT  &kp DOWN  &kp UP    &kp RIGHT  &kp HOME  &kp END
+&trans      &trans  &trans  &trans  &trans  &trans      &kp LBKT  &kp RBKT  &kp LBRC  &kp RBRC   &kp BSLH  &kp PSCRN
+                            &trans  &trans  &trans              &trans  &trans  &trans
+            >;
+        };
+
+        /* ----------------------------------------------------------------
+         * 4 SCROLL -- index fixed by the shield's scroll-layers = <4 5>.
+         * Everything is &trans: the driver does the work, and MOUSE (6)
+         * outranks this layer so its clicks stay reachable while scrolling.
+         * ---------------------------------------------------------------- */
+        scroll_layer {
+            display-name = "Scroll";
+            bindings = <
+&trans  &trans  &trans  &trans  &trans  &trans      &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans      &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans      &trans  &trans  &trans  &trans  &trans  &trans
+                        &trans  &trans  &trans              &trans  &trans  &trans
+            >;
+        };
+
+        /* Reserved: scroll-layers = <4 5> makes this a second scroll layer. */
+        reserved_scroll_alt {
             status = "reserved";
         };
 
-        extra3 {
-            status = "reserved";
+        /* ----------------------------------------------------------------
+         * 6 MOUSE -- activated by moving the ball (zip_temp_layer, above).
+         * Right home row becomes the mouse buttons.
+         * ---------------------------------------------------------------- */
+        mouse_layer {
+            display-name = "Mouse";
+            bindings = <
+&trans  &trans  &trans  &trans  &trans  &trans      &trans     &trans     &trans     &trans     &trans      &trans
+&trans  &trans  &trans  &trans  &trans  &trans      &mo SNIPE  &mkp LCLK  &mkp MCLK  &mkp RCLK  &mo SCROLL  &trans
+&trans  &trans  &trans  &trans  &trans  &trans      &trans     &trans     &trans     &trans     &trans      &trans
+                        &trans  &trans  &trans              &trans  &trans  &trans
+            >;
         };
 
-        extra4 {
-            status = "reserved";
+        /* ----------------------------------------------------------------
+         * 7 SNIPE -- index fixed by the shield's snipe-layers = <7>.
+         * All &trans; the driver slows the ball while this layer is held.
+         * ---------------------------------------------------------------- */
+        snipe_layer {
+            display-name = "Snipe";
+            bindings = <
+&trans  &trans  &trans  &trans  &trans  &trans      &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans      &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans      &trans  &trans  &trans  &trans  &trans  &trans
+                        &trans  &trans  &trans              &trans  &trans  &trans
+            >;
         };
-
     };
 };
