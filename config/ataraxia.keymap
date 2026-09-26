@@ -126,9 +126,25 @@
             >;
         };
 
-        /* Reserved: the driver turns the ball into arrow keys on layer 2. */
-        reserved_ball_arrows {
-            status = "reserved";
+        /* ----------------------------------------------------------------
+         * 2 BALL_ARROWS -- placeholder. The driver turns the ball into arrow
+         * keys whenever this layer is active, so nothing activates it.
+         *
+         * This MUST be a real layer, not `status = "reserved"`. Reserved
+         * layers only count toward ZMK_KEYMAP_LAYERS_LEN when Studio is
+         * enabled (keymap.h picks DT_FOREACH_CHILD vs _STATUS_OKAY on
+         * CONFIG_ZMK_STUDIO). Without them the keymap has 6 layers, and
+         * every index above that is rejected -- zip_temp_layer bails with
+         * "Invalid layer index: 6" and &mo SNIPE (7) silently does nothing.
+         * ---------------------------------------------------------------- */
+        ball_arrows_layer {
+            display-name = "BallArrow";
+            bindings = <
+&trans  &trans  &trans  &trans  &trans  &trans      &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans      &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans      &trans  &trans  &trans  &trans  &trans  &trans
+                        &trans  &trans  &trans              &trans  &trans  &trans
+            >;
         };
 
         /* ----------------------------------------------------------------
@@ -161,9 +177,16 @@
             >;
         };
 
-        /* Reserved: scroll-layers = <4 5> makes this a second scroll layer. */
-        reserved_scroll_alt {
-            status = "reserved";
+        /* 5 SCROLL_ALT -- placeholder; scroll-layers = <4 5> makes this a
+         * second scroll layer. Real, not reserved, for the reason above. */
+        scroll_alt_layer {
+            display-name = "Scroll2";
+            bindings = <
+&trans  &trans  &trans  &trans  &trans  &trans      &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans      &trans  &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans      &trans  &trans  &trans  &trans  &trans  &trans
+                        &trans  &trans  &trans              &trans  &trans  &trans
+            >;
         };
 
         /* ----------------------------------------------------------------

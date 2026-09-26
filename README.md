@@ -112,14 +112,39 @@ So the keymap's layer order is deliberate, not arbitrary:
 |---:|---|---|
 | 0 | Base | |
 | 1 | Lower | |
-| 2 | *reserved* | driver would turn the ball into arrow keys here |
+| 2 | *placeholder* | driver would turn the ball into arrow keys here, so nothing activates it |
 | 3 | Raise | |
 | 4 | Scroll | driver scrolls on this index |
-| 5 | *reserved* | driver treats this as a second scroll layer |
+| 5 | *placeholder* | driver treats this as a second scroll layer |
 | 6 | Mouse | auto-activated by ball movement |
 | 7 | Snipe | driver slows the ball on this index |
 
 **Renumbering these silently changes what the trackball does.**
+
+### Don't use `status = "reserved"` for the placeholders
+
+The two placeholder layers are real layers full of `&trans`, deliberately. A
+reserved layer does **not** reliably count toward `ZMK_KEYMAP_LAYERS_LEN`:
+
+```c
+// zmk/app/include/zmk/keymap.h
+COND_CODE_1(IS_ENABLED(CONFIG_ZMK_STUDIO),
+    (DT_FOREACH_CHILD(...)),              // reserved counted   -> 8 layers
+    (DT_FOREACH_CHILD_STATUS_OKAY(...)))  // reserved dropped   -> 6 layers
+```
+
+At 6 layers, every index above 5 is out of range. It fails silently at
+runtime, with no build warning:
+
+```
+<err> zmk: Invalid layer index: 6
+<err> zmk: Error applying input processors: -22
+```
+
+`zip_temp_layer` bails, the Mouse layer never activates, and `&mo SNIPE` (7)
+quietly does nothing — the trackball still moves the cursor, so it looks like
+only the buttons are broken. Measured layer counts, same config, Studio off:
+**reserved placeholders → 6, real `&trans` placeholders → 8.**
 
 ---
 
